@@ -18,23 +18,40 @@ const connectionConfig = {
     try {
       const pool = await mysql.createPool(connectionConfig);
 
-      router.get("/", async (req, res) => {
+      async function insertCompany(companyName) {
+        const connection = await pool.getConnection();
         try {
-          const connection = await pool.getConnection();
-          await connection.release();
-
-          res.send(`<form action="/submit" method="post">
-                        <label for="textInput">Connection Message:</label><br>
-                        <input type="text" id="textInput" name="textInput" value="Connected to MySQL successfully!"><br>
-                    </form>
-                    Connected to MySQL successfully!`);
+            const sql = `INSERT INTO company (name) VALUES (?)`;
+            const [results] = await connection.execute(sql, [companyName]);
+            console.log(`Company inserted with ID: ${results.insertId}`);
+            return true; // Indicate successful insertion
         } catch (error) {
-          console.error('MySQL connection error:', error);
-          res.status(500).send(`<form action="/submit" method="post">
-                                    <label for="textInput">Connection Message:</label><br>
-                                    <input type="text" id="textInput" name="textInput"><br>
-                                </form>
-                                Error connecting to MySQL database`);
+            console.error('Error inserting data:', error);
+            return false; // Indicate error
+        } finally {
+            await connection.release();
+        }
+      }
+
+      router.get("/", (req, res) => {
+        res.send(`
+            <form action="/submit" method="post">
+                <label for="companyName">Company Name:</label><br>
+                <input type="text" id="companyName" name="companyName" required><br><br>
+                <button type="submit">Submit</button>
+            </form>
+        `);
+      });
+
+      router.post("/submit", async (req, res) => {
+        const { companyName } = req.body;
+
+        const insertResult = await insertCompany(companyName);
+
+        if (insertResult) {
+          res.send(`<p>Company "${companyName}" added successfully!</p>`);
+        } else {
+          res.send('<p>Error adding company. Please try again.</p>');
         }
       });
 
